@@ -28,6 +28,8 @@ BLEUnsignedIntCharacteristic customXChar("2101", BLERead | BLENotify);
 BLEUnsignedIntCharacteristic customYChar("2102", BLERead | BLENotify);
 BLEUnsignedIntCharacteristic customZChar("2103", BLERead | BLENotify);
 BLEUnsignedIntCharacteristic customTempChar("2104", BLERead | BLENotify);
+BLEUnsignedIntCharacteristic customHumidityChar("2105", BLERead | BLENotify);
+BLEUnsignedIntCharacteristic customPressChar("2106", BLERead | BLENotify);
 
 
 void setup(){
@@ -58,10 +60,14 @@ void setup(){
   
   BLE.setLocalName("Arduino Accelerometer");
   BLE.setAdvertisedService(customService);
+  
   customService.addCharacteristic(customXChar);
   customService.addCharacteristic(customYChar);
   customService.addCharacteristic(customZChar);
   customService.addCharacteristic(customTempChar);
+  customService.addCharacteristic(customHumidityChar);
+  customService.addCharacteristic(customPressChar);
+  
   BLE.addService(customService);
   customXChar.writeValue(accelX);
   customYChar.writeValue(accelY);
@@ -69,6 +75,8 @@ void setup(){
   BLE.advertise();
   
   Serial.println("Bluetooth device is now active, waiting for connections...");
+
+  digitalWrite(LED_BUILTIN, LOW);
 
 }
 
@@ -86,6 +94,18 @@ void read_Accel() {
 float Read_Temperature()
 {
   return HTS.readTemperature();
+}
+
+float Read_Pressure()
+{
+ //Read Pressure value
+  return BARO.readPressure();
+}
+
+float Read_Humidity()
+{
+  //Read Humidity value
+  return HTS.readHumidity();
 }
 
 void  Magnetometer(int Delay)
@@ -130,7 +150,9 @@ void Temperature(int Delay)
 {
   //Read Temperature value
   temperature = HTS.readTemperature();
-  Serial.print("Temperature = ");Serial.println(9.0 / 5.0 * temperature + 32.0);
+  Serial.print("Temperature: C(");Serial.print(temperature);
+  Serial.print(") F(");Serial.print(9.0 / 5.0 * temperature + 32.0);
+  Serial.println(")");
   delay (Delay);  
 }
 
@@ -217,13 +239,12 @@ void loop()
   //Accelerometer(Delay);
   //Gyroscope(Delay);
   Pressure(Delay);
-  //Temperature(Delay);
+  Temperature(Delay);
   Humidity(Delay);
   //Proximity(Delay);
   
   //Gesture(Delay);
   //delay(20);
-
 
   BLEDevice central = BLE.central();
   if (central)
@@ -242,14 +263,14 @@ void loop()
       float fTemp = Read_Temperature();
       int iTemp = fTemp *100;
       customTempChar.writeValue(iTemp);
-      
-      Serial.print("At Main Function");
-      Serial.println("");
-      Serial.print(accelX);
-      Serial.print(" - ");
-      Serial.println(accelY);
-      Serial.println("");
-      Serial.println("");
+
+      float fHumidity = Read_Humidity();
+      int iHumidity = fHumidity *100;
+      customHumidityChar.writeValue(iHumidity);
+
+      float fPress = Read_Pressure();
+      int iPress = fPress *100;
+      customPressChar.writeValue(iPress);      
     }
     digitalWrite(LED_BUILTIN, LOW);
   }
