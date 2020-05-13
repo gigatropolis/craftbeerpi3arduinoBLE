@@ -13,6 +13,21 @@ PeripheralAddrName = ""
 lock_periphal = threading.Lock()
 lock_CharRead = threading.Lock()
 
+class SensorDelegate(btle.DefaultDelegate):
+    def __init__(self,params):
+        btle.DefaultDelegate.__init__(self)
+
+    def handleNotification(self,cHandle,data):
+        print("handling notification...")
+        print("handle=",cHandle)
+        raw = struct.unpack("<HH",data)[0]
+        if cHandle == 12:
+            data = raw
+        else:
+            data = raw /100.0
+
+        print("data", data)
+
 class BLESensorBase(SensorActive):
 
     def InitPeripheralConnection(self, address):
@@ -23,93 +38,25 @@ class BLESensorBase(SensorActive):
         global lock_CharRead
 
         lock_periphal.acquire()
-        print "PRE: PeripheralAddrName = %s" %(PeripheralAddrName)
 
         if not PeripheralAddrName or not PeripheralConnection:
 
             print "connecting...."
             PeripheralAddrName = address
             try:
-                print "PeripheralAddrName=%s" % (PeripheralAddrName)
                 PeripheralConnection = btle.Peripheral(address)
-                print "PeripheralConnection=%s" % (str(PeripheralConnection))
+                print("PeripheralConnection=%s" % (str(PeripheralConnection)))
+                PeripheralConnection.setDelegate(SensorDelegate(0))
             except:
-                print "Couldn't connect"
+                print("Couldn't connect")
             finally:
                lock_periphal.release()
 
-    @classmethod
-    def init_global(cls):
-        '''
-        Called one at the startup for all sensors
-        :return: 
-        '''
-        #cls['PeripheralConnection'] = None
-        #self['PeripheralAddrName'] = ""
-
- 
-@cbpi.sensor
-class ArduinoBLE_Temperature(BLESensorBase):
-
-    PeripheralAddress = Property.Text("Peripheral Address", configurable=True, default_value="run blelisten.py for address")
-    ServiceAddress = Property.Text("Service Address", configurable=True, default_value="run blelisten.py: '1101....'")
-    CharTemp = Property.Text("Characteristic Temperature", configurable=True, default_value="run blelisten.py '2204...'")
-
-    def get_unit(self):
-        '''
-        :return: Unit of the sensor as string. Should not be longer than 3 characters
-        '''
-        return "°C" if self.get_config_parameter("unit", "C") == "C" else "°F"
-
-    def stop(self):
-        '''
-        Stop the sensor. Is called when the sensor config is updated or the sensor is deleted
-        :return: 
-        '''
-        pass
-
-    def execute(self):
-        '''
-        Active sensor has to handle its own loop
-        :return: 
-        '''
-        self.InitPeripheralConnection(self.PeripheralAddress)
-        self.Peripheral = PeripheralConnection
-
-        print "temp.Peripheral = ", self.Peripheral
-        while self.is_running():
-
-            self.sleep(5)
-            lock_CharRead.acquire()
-            ch = self.Peripheral.getCharacteristics()
-            temp = 0
-            
-            for c in ch:
-
-                if str(c.uuid) == self.CharTemp:          
-                    if c.supportsRead():
-                        s1 = c.read()
-                        temp = struct.unpack("<HH", s1)[0] /100.0
-                        if (self.get_unit() == "C"):
-                            self.data_received(temp)
-                        else:
-                            f = 9.0 / 5.0 * temp + 32.0
-                            self.data_received(round(f, 2))
-                    break
- 
-            lock_CharRead.release()
-            self.sleep(5)
-
-
-@cbpi.sensor
-class ArduinoBLE_Excel_Xaxis(BLESensorBase):
-
-    PeripheralAddress = Property.Text("Peripheral Address", configurable=True, default_value="run blelisten.py for address")
-    ServiceAddress = Property.Text("Service Address", configurable=True, default_value="run blelisten.py: '1101....'")
-    CharExcel_X = Property.Text("Characteristic Excel_X", configurable=True, default_value="run blelisten.py '2201...'")
-
-    def get_unit(self):
-        return "°"
+    def enable_notify(p,  chara_uuid):
+        setup_data = b"\x01\x00"
+        notify = p.getCharacteristics(uuid=chara_uuid)[0]
+        notify_handle = notify.getHandle() + 1
+        p.writeCharacteristic(notify_handle, setup_data, withResponse=True)
 
     def stop(self):
         '''
@@ -136,103 +83,83 @@ class ArduinoBLE_Excel_Xaxis(BLESensorBase):
             temp = 0
             
             for c in ch:
-                 if str(c.uuid) == self.CharExcel_X:
+                 if str(c.uuid) == self.GetCharacteristic():
                     if c.supportsRead():
-                        s1 = c.read()
-                        excelX = struct.unpack("<HH", s1)[0]
-                        self.data_received(excelX)
+                        rawData = c.read()
+                        data = self.UnpackData(rawData)
+                        self.data_received(data)
                     break
                     
             lock_CharRead.release()
-            self.sleep(5)
+            self.sleep(4)
 
+    def UnpackData(self, data):
+        return struct.unpack("<HH", data)[0] /100.0
+
+    def GetCharacteristic(self):
+        return ""
+
+    def GetService(self):
+        return ""
+
+    def GetPeripheral(self):
+        return ""
+
+    @classmethod
+    def init_global(cls):
+        '''
+        Called one at the startup for all sensors
+        :return: 
+        '''
+        print("Init_Global")
+
+ 
 @cbpi.sensor
-class ArduinoBLE_Humidity(BLESensorBase):
+class BLE_UnsignedInt(BLESensorBase):
 
-    PeripheralAddress = Property.Text("Peripheral Address", configurable=True, default_value="run blelisten.py for address")
-    ServiceAddress = Property.Text("Service Address", configurable=True, default_value="run blelisten.py: '1101....'")
-    CharHum = Property.Text("Characteristic Humidity", configurable=True, default_value="run blelisten.py '2205...'")
+    PeripheralAddress = Property.Text("Peripheral Address", configurable=True, description="run blelisten.py for address")
+    ServiceAddress = Property.Text("Service Address", configurable=True, description="run blelisten.py: '1101....'")
+    Characteristic = Property.Text("Characteristic Address", configurable=True, description="run blelisten.py '2201...'")
+    SensorUnits = Property.Select("Sensor Units", options=["°", "°C", "°F", "kPa", "%"], description="Units to display for sensor")
+
+    def UnpackData(seld, data):
+        return struct.unpack("<HH", data)[0]
 
     def get_unit(self):
-        return "%"
+        return self.SensorUnits
 
-    def stop(self):
-        '''
-        Stop the sensor. Is called when the sensor config is updated or the sensor is deleted
-        :return: 
-        '''
-        pass
+    def GetCharacteristic(self):
+        return self.Characteristic
 
-    def execute(self):
-        '''
-        Active sensor has to handle its own loop
-        :return: 
-        '''
-        self.sleep(0.2)
-        self.InitPeripheralConnection(self.PeripheralAddress)
-        self.Peripheral = PeripheralConnection
+    def GetService(self):
+        return self.ServiceAddress
 
-        print "hum.Peripheral = ", self.Peripheral
-        while self.is_running():
+    def GetPeripheral(self):
+        return self.PeripheralAddress
 
-            self.sleep(5)
-            lock_CharRead.acquire()
-            ch = self.Peripheral.getCharacteristics()
-            temp = 0
-            
-            for c in ch:
-                if str(c.uuid) == self.CharHum:
-                    if c.supportsRead():
-                        s1 = c.read()
-                        hum = struct.unpack("<HH", s1)[0] /100.0
-                        self.data_received(hum)
-                    break
-                    
-            lock_CharRead.release()
-            self.sleep(5)
 
 @cbpi.sensor
-class ArduinoBLE_Pressure(BLESensorBase):
+class BLE_Float(BLESensorBase):
 
-    PeripheralAddress = Property.Text("Peripheral Address", configurable=True, default_value="run blelisten.py for address")
-    ServiceAddress = Property.Text("Service Address", configurable=True, default_value="run blelisten.py: '1101....'")
-    CharPress = Property.Text("Characteristic Pressure", configurable=True, default_value="run blelisten.py '2206...'")
+    PeripheralAddress = Property.Text("Peripheral Address", configurable=True, description="run blelisten.py for address")
+    ServiceAddress = Property.Text("Service Address", configurable=True, description="run blelisten.py: '1101....'")
+    Characteristic = Property.Text("Characteristic Address", configurable=True, description="run blelisten.py '2201...'")
+    SensorUnits = Property.Select("Sensor Units", options=["°", "°C", "°F", "kPa", "%"], description="Units to display for sensor")
+
+    def UnpackData(seld, data):
+        val = struct.unpack("<HH", data)[0] / 100.0
+        if get_unit() == "°F":
+            val = 9.0 / 5.0 * val + 32.0
+        return val
 
     def get_unit(self):
-        return "kPa"
+        return self.SensorUnits
 
-    def stop(self):
-        '''
-        Stop the sensor. Is called when the sensor config is updated or the sensor is deleted
-        :return: 
-        '''
-        pass
+    def GetCharacteristic(self):
+        return self.Characteristic
 
-    def execute(self):
-        '''
-        Active sensor has to handle its own loop
-        :return: 
-        '''
-        self.sleep(0.3)
-        self.InitPeripheralConnection(self.PeripheralAddress)
-        self.Peripheral = PeripheralConnection
+    def GetService(self):
+        return self.ServiceAddress
 
-        print "press.Peripheral = ", self.Peripheral
-        while self.is_running():
-
-            lock_CharRead.acquire()
-            ch = self.Peripheral.getCharacteristics()
-            temp = 0
-            
-            for c in ch:
-                #print(str(c.uuid))
-
-                if str(c.uuid) == self.CharPress:
-                    if c.supportsRead():
-                        s1 = c.read()
-                        pressure = struct.unpack("<HH", s1)[0] /100.0
-                        self.data_received(pressure)
-                    break
-                    
-            lock_CharRead.release()
-            self.sleep(5)
+    def GetPeripheral(self):
+        return self.PeripheralAddress

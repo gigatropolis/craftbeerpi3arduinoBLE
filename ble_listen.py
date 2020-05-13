@@ -15,21 +15,43 @@ class MyDelegate(btle.DefaultDelegate):
     def handleNotification(self,cHandle,data):
         print("handling notification...")
         print("handle=",cHandle)
-        print(struct.unpack("b",data))
+        raw = struct.unpack("<HH",data)[0]
+        if cHandle == 12:
+            data = raw
+        else:
+            data = raw /100.0
+
+        print("data", data)
+
 
 p = btle.Peripheral('dd:ee:d7:d2:ac:74')
 p.setDelegate(MyDelegate(0))
+
+def enable_notify(p,  chara_uuid):
+    setup_data = b"\x01\x00"
+    notify = p.getCharacteristics(uuid=chara_uuid)[0]
+    notify_handle = notify.getHandle() + 1
+    p.writeCharacteristic(notify_handle, setup_data, withResponse=True)
+
+enable_notify(p, char1_uuid)
+enable_notify(p, charTemp_uuid)
+enable_notify(p, charHum_uuid)
+enable_notify(p, charPress_uuid)
+
 #svc = p.getServiceByUUID( service_uuid )
+#chs = svc.getCharacteristics()
+#for c in chs:
+#    print c.valHandle
 
 while True:
-    if p.waitForNotifications(0.25):
+    if p.waitForNotifications(1.5):
         continue
     print("waiting...")
     #print(p.getCharacteristics())
 
     ch = p.getCharacteristics()
     for c in ch:
-        #print(str(c.uuid))
+        print(str(c.uuid))
 
         if str(c.uuid) == char1_uuid:
             if c.supportsRead():
