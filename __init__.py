@@ -12,21 +12,76 @@ PeripheralConnection = None
 PeripheralAddrName = ""
 lock_periphal = threading.Lock()
 lock_CharRead = threading.Lock()
+lock_Data = threading.Lock()
+
+
+class BLE_ReadSensorValues(threading.Thread):
+    def __init__(self, peripheral, loopDelay):
+        threading.Thread.__init__(self)
+        self.peripheral = peripheral
+        self.loopDelay = 4 #loopDelay
+        self.delegate = SensorDelegate(0)
+        peripheral.setDelegate(self.delegate)
+        self.running = True
+
+    def run(self):
+        global PeripheralAddrName
+        tryCount = 0
+        print("starting thread... ", str(self))
+
+        while self.running:
+
+            if not PeripheralAddrName or not self.peripheral:
+                print("Thread Not Connected", PeripheralAddrName, self.peripheral)            
+                self.sleep(5)
+            else:
+                try:
+                    if self.peripheral.waitForNotifications(self.loopDelay):
+                        tryCount = 0
+                        continue
+                except Exception as e:
+                    print("waitForNotifications:: ", str(e))
+
+                tryCount += 1
+                if tryCount > 10:
+                    print("No Data Received")
+                    tryCount = 0
+    
+    def ReadRawData(self, handle):
+        data, ok = self.delegate.ReadRawData(handle)
+
+        if not ok:
+            print("BLE_ReadSensorValues::ReadRawData: no data returned for handle ", handle) 
+
+        return data
+
 
 class SensorDelegate(btle.DefaultDelegate):
     def __init__(self,params):
         btle.DefaultDelegate.__init__(self)
+        self.handles = dict()
 
     def handleNotification(self,cHandle,data):
-        print("handling notification...")
-        print("handle=",cHandle)
-        raw = struct.unpack("<HH",data)[0]
-        if cHandle == 12:
-            data = raw
-        else:
-            data = raw /100.0
+        global lock_Data
+        #print("handling notification...")
+        print("handle=",cHandle, data)
 
-        print("data", data)
+        lock_Data.acquire()
+        try:
+            self.handles[cHandle] = data
+        finally:
+            lock_Data.release()
+
+    def ReadRawData(self, handle):
+        if handle in self.handles:
+            lock_Data.acquire()
+            try:
+                return self.handles[handle], True
+            finally:
+                lock_Data.release()
+        
+        #print("no handle ",  handle)
+        return b"", False
 
 class BLESensorBase(SensorActive):
 
@@ -46,17 +101,20 @@ class BLESensorBase(SensorActive):
             try:
                 PeripheralConnection = btle.Peripheral(address)
                 print("PeripheralConnection=%s" % (str(PeripheralConnection)))
-                PeripheralConnection.setDelegate(SensorDelegate(0))
-            except:
-                print("Couldn't connect")
+                self.sensorThread = BLE_ReadSensorValues(PeripheralConnection, 4)
+                self.sensorThread.start()
+            except Exception as e:
+                self.sensorThread = ""
+                print("Couldn't connect::", str(e))
             finally:
                lock_periphal.release()
 
-    def enable_notify(p,  chara_uuid):
+    def enable_notify(self, peripheral,  chara_uuid):
         setup_data = b"\x01\x00"
-        notify = p.getCharacteristics(uuid=chara_uuid)[0]
+        notify = peripheral.getCharacteristics(uuid=chara_uuid)[0]
         notify_handle = notify.getHandle() + 1
-        p.writeCharacteristic(notify_handle, setup_data, withResponse=True)
+        peripheral.writeCharacteristic(notify_handle, setup_data, withResponse=True)
+        return notify, notify.getHandle()
 
     def stop(self):
         '''
@@ -70,27 +128,20 @@ class BLESensorBase(SensorActive):
         Active sensor has to handle its own loop
         :return: 
         '''
-        self.sleep(0.1)
         self.InitPeripheralConnection(self.PeripheralAddress)
         self.Peripheral = PeripheralConnection
+        self.sleep(0.1)
+        self.characteristicName = self.GetCharacteristic()
+        self.Characteristic, self.handle = self.enable_notify(self.Peripheral, self.characteristicName)
+        print( "self.characteristicName, handle = ", self.characteristicName, self.Characteristic.getHandle() )
 
-        print "X.Peripheral = ", self.Peripheral
         while self.is_running():
 
-            self.sleep(5)
-            lock_CharRead.acquire()
-            ch = self.Peripheral.getCharacteristics()
-            temp = 0
-            
-            for c in ch:
-                 if str(c.uuid) == self.GetCharacteristic():
-                    if c.supportsRead():
-                        rawData = c.read()
-                        data = self.UnpackData(rawData)
-                        self.data_received(data)
-                    break
-                    
-            lock_CharRead.release()
+            rawData = self.sensorThread.ReadRawData(self.handle)
+            if rawData:
+                data = self.UnpackData(rawData)
+                self.data_received(data)
+               
             self.sleep(4)
 
     def UnpackData(self, data):
@@ -111,7 +162,7 @@ class BLESensorBase(SensorActive):
         Called one at the startup for all sensors
         :return: 
         '''
-        print("Init_Global")
+        print("Init_Global", cls)
 
  
 @cbpi.sensor
@@ -146,10 +197,10 @@ class BLE_Float(BLESensorBase):
     Characteristic = Property.Text("Characteristic Address", configurable=True, description="run blelisten.py '2201...'")
     SensorUnits = Property.Select("Sensor Units", options=["°", "°C", "°F", "kPa", "%"], description="Units to display for sensor")
 
-    def UnpackData(seld, data):
+    def UnpackData(self, data):
         val = struct.unpack("<HH", data)[0] / 100.0
-        if get_unit() == "°F":
-            val = 9.0 / 5.0 * val + 32.0
+        #if self.get_unit() == "°F":
+        val = 9.0 / 5.0 * val + 32.0
         return val
 
     def get_unit(self):
