@@ -19,7 +19,7 @@ class BLE_ReadSensorValues(threading.Thread):
     def __init__(self, peripheral, loopDelay):
         threading.Thread.__init__(self)
         self.peripheral = peripheral
-        self.loopDelay = 4 #loopDelay
+        self.loopDelay = loopDelay
         self.delegate = SensorDelegate(0)
         peripheral.setDelegate(self.delegate)
         self.running = True
@@ -73,12 +73,15 @@ class SensorDelegate(btle.DefaultDelegate):
             lock_Data.release()
 
     def ReadRawData(self, handle):
+        print("ReadRawData")
         if handle in self.handles:
-            lock_Data.acquire()
+            #lock_Data.acquire()
             try:
                 return self.handles[handle], True
+            except Exception as e:
+                print("Can't Read Raw Data: ", str(e))
             finally:
-                lock_Data.release()
+                pass#lock_Data.release()
         
         #print("no handle ",  handle)
         return b"", False
@@ -201,7 +204,7 @@ class BLE_Float(BLESensorBase):
         val = struct.unpack("<HH", data)[0] / 100.0
         #if self.get_unit() == "°F":
         val = 9.0 / 5.0 * val + 32.0
-        return val
+        return round(val, 2)
 
     def get_unit(self):
         return self.SensorUnits

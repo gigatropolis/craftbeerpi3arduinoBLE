@@ -5,7 +5,7 @@
 #include <Arduino_LPS22HB.h> //Include library to read Pressure 
 #include <Arduino_HTS221.h> //Include library to read Temperature and Humidity 
 
-int Delay = 1000;
+int Delay = 4000;
 
 BLEService customService("1101");
 BLEUnsignedIntCharacteristic customXChar("2101", BLERead | BLENotify);
