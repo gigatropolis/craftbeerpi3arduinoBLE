@@ -10,6 +10,7 @@ import threading
 
 PeripheralConnection = None
 PeripheralAddrName = ""
+SensorThread = None
 lock_periphal = threading.Lock()
 lock_CharRead = threading.Lock()
 lock_Data = threading.Lock()
@@ -73,7 +74,7 @@ class SensorDelegate(btle.DefaultDelegate):
             lock_Data.release()
 
     def ReadRawData(self, handle):
-        print("ReadRawData")
+        print("ReadRawData", str(self))
         if handle in self.handles:
             #lock_Data.acquire()
             try:
@@ -92,25 +93,37 @@ class BLESensorBase(SensorActive):
 
         global PeripheralConnection
         global PeripheralAddrName
+        global SensorThread
         global lock_periphal
         global lock_CharRead
 
+        tries = 0
         lock_periphal.acquire()
+        try:
+            while not PeripheralAddrName and not PeripheralConnection and tries < 10:
 
-        if not PeripheralAddrName or not PeripheralConnection:
+                print "connecting...."
+                try:
+                    if SensorThread:
+                        print("Found  SensorThread. Killing...")
+                        SensorThread.running = False
+                        self.sleep(5)
 
-            print "connecting...."
-            PeripheralAddrName = address
-            try:
-                PeripheralConnection = btle.Peripheral(address)
-                print("PeripheralConnection=%s" % (str(PeripheralConnection)))
-                self.sensorThread = BLE_ReadSensorValues(PeripheralConnection, 4)
-                self.sensorThread.start()
-            except Exception as e:
-                self.sensorThread = ""
-                print("Couldn't connect::", str(e))
-            finally:
-               lock_periphal.release()
+                    PeripheralConnection = btle.Peripheral(address)
+                    print("PeripheralConnection=%s" % (str(PeripheralConnection)))
+                    SensorThread = BLE_ReadSensorValues(PeripheralConnection, 4)
+                    SensorThread.start()
+                    PeripheralAddrName = address
+                except Exception as e:
+                    if SensorThread:
+                        SensorThread.running = False
+
+                    print("InitPeripheralConnection::Couldn't connect::", str(e))
+                    tries += 1
+                    print("connection attempt %d (%s)" % (tries + 1, str(self)))
+                    self.sleep(1)
+        finally:
+            lock_periphal.release()
 
     def enable_notify(self, peripheral,  chara_uuid):
         setup_data = b"\x01\x00"
@@ -131,19 +144,39 @@ class BLESensorBase(SensorActive):
         Active sensor has to handle its own loop
         :return: 
         '''
-        self.InitPeripheralConnection(self.PeripheralAddress)
-        self.Peripheral = PeripheralConnection
+        global PeripheralConnection
+        global SensorThread
+
+        print("execute()::%s" % (str(self)))
+
+        connected = False
+        if PeripheralConnection and self.PeripheralAddress:
+            connected = True
+
+        tries = 0
+        while not connected and tries < 10:
+            self.InitPeripheralConnection(self.PeripheralAddress)
+            self.Peripheral = PeripheralConnection
+            self.sensorThread = SensorThread
+            if not PeripheralConnection:
+                self.sleep(4)
+                tries += 1
+                print("connection attempt %d (%s)" % (tries+1, str(self)))
+                continue
+
+            connected = True
+
         self.sleep(0.1)
         self.characteristicName = self.GetCharacteristic()
         self.Characteristic, self.handle = self.enable_notify(self.Peripheral, self.characteristicName)
         print( "self.characteristicName, handle = ", self.characteristicName, self.Characteristic.getHandle() )
 
         while self.is_running():
-
-            rawData = self.sensorThread.ReadRawData(self.handle)
-            if rawData:
-                data = self.UnpackData(rawData)
-                self.data_received(data)
+            if self.sensorThread:
+                rawData = self.sensorThread.ReadRawData(self.handle)
+                if rawData:
+                    data = self.UnpackData(rawData)
+                    self.data_received(data)
                
             self.sleep(4)
 
