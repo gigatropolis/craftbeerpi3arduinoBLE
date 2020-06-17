@@ -5,7 +5,8 @@
 #include <Arduino_LPS22HB.h> //Include library to read Pressure 
 #include <Arduino_HTS221.h> //Include library to read Temperature and Humidity 
 
-int Delay = 4000;
+int Delay = 3000;
+int connectDelay = 200;
 
 BLEService customService("1101");
 BLEUnsignedIntCharacteristic customXChar("2101", BLERead | BLENotify);
@@ -67,9 +68,9 @@ void BLE_Update_Accel()
   {
     IMU.readAcceleration(x, y, z);
 
-    customXChar.writeValue((1+x)*100);
-    //customYChar.writeValue((1+y)*100);
-    //customZChar.writeValue((1+z)*100);
+    customXChar.writeValue((1+x)*1000);
+    //customYChar.writeValue((1+y)*1000);
+    //customZChar.writeValue((1+z)*1000);
   }
 }
 
@@ -113,5 +114,5 @@ void loop()
    }
     digitalWrite(LED_BUILTIN, LOW);
   } 
-    delay(Delay);
+    delay(connectDelay);
 }
