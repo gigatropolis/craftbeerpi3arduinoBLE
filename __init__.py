@@ -27,15 +27,15 @@ def InitPeripheralConnection(obj, address):
     try:
         while not PeripheralAddrName and not PeripheralConnection and tries < 10:
 
-            print( "connecting to %s ...." % (address))
+            #print( "connecting to %s ...." % (address))
             try:
                 if SensorThread:
-                    print("Found  SensorThread. Killing...")
+                    #print("Found  SensorThread. Killing...")
                     SensorThread.running = False
                     time.sleep(5)
 
                 PeripheralConnection = btle.Peripheral(address, addrType=btle.ADDR_TYPE_PUBLIC)
-                print("PeripheralConnection=%s" % (str(PeripheralConnection)))
+                #print("PeripheralConnection=%s" % (str(PeripheralConnection)))
                 SensorThread = BLE_ReadSensorValues(PeripheralConnection, 4.5)
                 SensorThread.start()
                 PeripheralAddrName = address
@@ -44,9 +44,9 @@ def InitPeripheralConnection(obj, address):
                 if SensorThread:
                     SensorThread.running = False
 
-                print("InitPeripheralConnection::Couldn't connect::", str(e))
+                #print("InitPeripheralConnection::Couldn't connect::", str(e))
                 tries += 1
-                print("connection attempt %d (%s)" % (tries + 1, str(obj)))
+                #print("connection attempt %d (%s)" % (tries + 1, str(obj)))
                 time.sleep(1)
     finally:
         pass
@@ -67,10 +67,10 @@ class BLE_ReadSensorValues(threading.Thread):
         global PeripheralAddrName
         global PeripheralConnection
         tryCount = 0
-        print("starting thread... %s" % (str(self)))
+        #print("starting thread... %s" % (str(self)))
 
         if not self.delegate:
-            print("Create New delegate")
+            #print("Create New delegate")
             self.delegate = SensorDelegate(0)
             peripheral.setDelegate(self.delegate)
             time.sleep(1)
@@ -121,7 +121,7 @@ class SensorDelegate(btle.DefaultDelegate):
     def handleNotification(self,cHandle,data):
         global lock_Data
         #print("handling notification...")
-        print("handle=",cHandle, data)
+        #print("handle=",cHandle, data)
 
         #lock_Data.acquire()
         try:
@@ -131,7 +131,7 @@ class SensorDelegate(btle.DefaultDelegate):
             #lock_Data.release()
 
     def ReadRawData(self, handle):
-        print("ReadRawData", handle, str(self))
+        #print("ReadRawData", handle, str(self))
         data = b""
         ok = False
 
@@ -183,7 +183,7 @@ class BLESensor(SensorPassive):
 
     def enable_notify(self, peripheral,  chara_uuid):
         global lock_SetNotify
-        print("enable_notify::chara_uuid=%s" % (chara_uuid))
+        #print("enable_notify::chara_uuid=%s" % (chara_uuid))
         notify, handle = None, None
         lock_SetNotify.acquire()
         try:
@@ -210,22 +210,22 @@ class BLESensor(SensorPassive):
         global PeripheralConnection
         global SensorThread
 
-        print("CheckAndConnect::%s" % (str(self)))
+        #print("CheckAndConnect::%s" % (str(self)))
 
         connected = False
         if PeripheralConnection and self.sensorThread:
             connected = True
 
         if not connected:
-            print("read::connection attempt...(%s)" % (str(self)))
+            #print("read::connection attempt...(%s)" % (str(self)))
             InitPeripheralConnection(None,self.PeripheralAddress)
 
             if not SensorThread:
-                print("read::No sensor thread after connect attempted", str(self))
+                #print("read::No sensor thread after connect attempted", str(self))
                 return
 
             if not PeripheralConnection:
-                print("read::no PeripheralConnection", str(self))
+                #print("read::no PeripheralConnection", str(self))
                 return
 
         self.peripheral = PeripheralConnection
@@ -259,14 +259,14 @@ class BLESensor(SensorPassive):
             if not self.handle:
                 notify = self.peripheral.getCharacteristics(uuid=self.Characteristic)[0]
                 self.handle = notify.getHandle()
-                print("handle", self.handle)
+                #print("handle", self.handle)
             try:
                 rawData = self.peripheral.readCharacteristic(self.handle)
             except Exception as e:
                 print ("can't read raw data::", str(e))
                 return
 
-        print(ok, "self.DataType=", str(self.DataType), "handle=",self.handle, "raw=", rawData)
+        #print(ok, "self.DataType=", str(self.DataType), "handle=",self.handle, "raw=", rawData)
         data = 0.0
         try:
             if rawData:
@@ -309,5 +309,5 @@ class BLESensor(SensorPassive):
         Called one at the startup for all sensors
         :return: 
         '''
-        print("Init Global BLE", cls)
+        print("INIT BLE SENSORS", cls)
  
