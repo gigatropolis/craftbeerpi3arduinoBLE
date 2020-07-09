@@ -1,5 +1,6 @@
 # craftbeerpi3arduinoBLE
-Plugin for craftbeerpi3 that reads sensor input through Blue tooth light (BLE) from arduino device (nano 33 sense) or any device for BLE bluetooth. The plugin uncludes Arduino sketch that reads sensors for Temperature, Accelerometer, Pressure, and Humidity.
+Plugin for craftbeerpi3 that reads sensor input through Blue tooth light (BLE) from arduino device (nano 33 sense) or any device for BLE bluetooth.\
+The plugin includes Arduino sketch that reads sensors for Temperature, Accelerometer, Pressure, and Humidity.
 
   Four sensors configured and reading values from Arduino nano 33 sense:
   ![reading values from Arduino nano 33 sense](doc/cbpi_sensors.png)
@@ -29,18 +30,15 @@ You need the Arduino IDE that can be downloaded for free online and installed on
 
  Look for device with local name **Arduino Accelerometer** should look something like this
 
- `Device dd:ee:d7:d2:ac:74 (public), RSSI=-67 dB
-
-  Flags = 06
-  
-  Incomplete 16b Services = 00001101-0000-1000-8000-00805f9b34fb
-
-  Complete Local Name = Arduino Accelerometer`
+>Device dd:ee:d7:d2:ac:74 (public), RSSI=-67 dB\
+>Flags = 06\
+>Incomplete 16b Services = 00001101-0000-1000-8000-00805f9b34fb\
+>Complete Local Name = Arduino Accelerometer
 
 ## Setup Pluggin to read BLE sensor devices
 
 The service name starts with `00001101-`and then the rest of the 16 bytes service name.
-The Peripheral address above is`dd:ee:d7:d2:ac:74` but yours will be different (MAC idea of device)
+The Peripheral address above is `dd:ee:d7:d2:ac:74` but yours will be different (MAC id of device)
 
 ### The Characteristic device names for each Arduino sensor in sketch provided
 
