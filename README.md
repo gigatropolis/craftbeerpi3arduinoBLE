@@ -1,18 +1,18 @@
 # craftbeerpi3arduinoBLE
-Plugin for craftbeerpi3 that reads sensor input through Blue tooth light (BLE) from arduino device (nano 33 sense) or any device for BLE bluetooth.\
+Plugin for craftbeerpi3 that reads sensor input through Blue tooth light (BLE) from Arduino device (Nano 33 sense) or any device for BLE Bluetooth.\
 The plugin includes Arduino sketch that reads sensors for Temperature, Accelerometer, Pressure, and Humidity.
 
-  Four sensors configured and reading values from Arduino nano 33 sense:
+  Four sensors configured and reading values from Arduino Nano 33 sense:
   ![reading values from Arduino nano 33 sense](doc/cbpi_sensors.png)
 
-## Setup Rasberry Pi for Bluetooth BLE
+## Setup Raspberry Pi for Bluetooth BLE
 
  Need to install bluez to rpi. It might be 80% there to just do:
 
  > sudo apt-get install bluetooth bluez bluez-tools rfkill rfcomm
 
- some other resouces showing how to install from source.also more on dependencies and configuring bluetooth device on the Rasberry pi.
-  Some files need to be modified to enable BLe (some of these resources may be old and so maybe not nessesary anymore)
+ some other resources showing how to install from source. also, more links on dependencies and configuring Bluetooth device on the Rasberry pi.
+  Some files need to be modified to enable BLE (some of these resources may be old and so maybe not necessary anymore)
 
 [github.com/IanHarvey/bluepy](https://github.com/IanHarvey/bluepy)
 
@@ -23,9 +23,9 @@ The plugin includes Arduino sketch that reads sensors for Temperature, Accelerom
 ## Setup Arduino To read sensors
 
 Under directory arduino/simple_sensors is a sketch "ble_simple_sensors" that was developed on a Arduino nano 33 sense. Should be easy to modify for any Arduino to read sensor values and send over Blue Tooth Light to cbpi3 pluggin to read. 
-You need the Arduino IDE that can be downloaded for free online and installed on any computer. I have it installed on a rasberry pi 4 and works pretty good; although, the compilation can take a long time sometimes.
+You need the Arduino IDE that can be downloaded for free online and installed on any computer. I have it installed on a Raspberry  pi 4 and works pretty good; although, the compilation can take a long time sometimes.
 
- Once script is running on Arduino, run the ble_scanner.py file under pluggin main directory
+ Once script is running on Arduino, run the ble_scanner.py file under plugin main directory
  > sudo python ble_scanner.py
 
  Look for device with local name **Arduino Accelerometer** should look something like this
@@ -45,10 +45,10 @@ The Peripheral address above is `dd:ee:d7:d2:ac:74` but yours will be different 
 - 00002101- Accelerometer X-Axis
 - 00002104- Temperature
 - 00002105- Humidity
-- 00002106- Barometeric Pressure
+- 00002106- Barometric Pressure
 
-The read type choices "BLERead" and BLENotify". Recommend for now try using "BLERead" because it seems more stable. Notify is good when saving battery power for devices that only sends information out ocassionally.
+The read type choices "BLERead" and BLENotify". Recommend for now try using "BLERead" because it seems more stable. Notify is good when saving battery power for devices that only sends information out occasionally.
 \
 This is example setup for Temperature probe
-![Temperature sensoe setup](doc/cbpi_sensor_setup.png)
+![Temperature sensor setup](doc/cbpi_sensor_setup.png)
 
